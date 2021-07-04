@@ -1,0 +1,116 @@
+---
+- hosts: all
+
+  vars:
+    build_path: "{{ ansible_user_dir }}/gr_smart_meter"
+    python_2_site_package_location: "{{ ansible_user_dir }}/.local/lib/python2.7/site-packages"
+
+  environment:
+    PYTHONPATH: /usr/local/lib/python3/dist-packages/
+
+  pre_tasks:
+    - name: Add gnuradio repository.
+      apt_repository: repo='ppa:gnuradio/gnuradio-releases-3.8'
+      become: yes
+    - name: Update and upgrade apt packages
+      apt: 
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 3600
+      become: yes
+
+  tasks:
+    - name: Install Dependencies.
+      apt:
+        state: present
+        name:
+          - git
+          - cmake
+          - g++
+          - libboost-all-dev
+          - libgmp-dev
+          - swig
+          - python3-numpy
+          - python3-mako
+          - python3-sphinx
+          - python3-lxml
+          - doxygen
+          - libfftw3-dev
+          - libsdl1.2-dev
+          - libgsl-dev
+          - libqwt-qt5-dev
+          - libqt5opengl5-dev
+          - python3-pyqt5
+          - liblog4cpp5-dev
+          - libzmq3-dev
+          - python3-yaml
+          - python3-click
+          - python3-click-plugins
+          - python3-zmq
+          - python3-scipy
+          - python3-gi
+          - python3-gi-cairo
+          - gobject-introspection
+          - gir1.2-gtk-3.0
+          - xterm
+          - liborc-0.4-dev
+          - vim
+          - gnuradio
+          - libusb-1.0-0-dev
+      become: yes
+    - name: Create Build Folder
+      file:
+        path: "{{ build_path }}"
+        state: "directory"
+        mode: '0777'
+    - name: install numpy
+      shell: |
+        curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
+        python2 get-pip.py
+        ~/.local/bin/pip2 install numpy
+      args:
+        chdir: "{{ build_path }}"
+        creates: "{{ python_2_site_package_location }}/numpy"
+    - name: add PYTHONPATH to bashrc
+      lineinfile:
+        path: ~/.bashrc
+        regexp: "^export PYTHONPATH="
+        line: "export PYTHONPATH=/usr/local/lib/python3/dist-packages/"
+    - include_tasks: tasks/buildrtlsdr.yml
+      vars:
+        title: rtl-sdr
+        git_url: git://git.osmocom.org/rtl-sdr.git
+        path: "{{ build_path }}/rtl-sdr"
+    - include_tasks: tasks/buildGit.yml
+      loop:
+        - title: gr-osmosdr
+          git_url: git://git.osmocom.org/gr-osmosdr
+          path: "{{ build_path }}/gr-osmosdr"
+          branch: "gr3.8"
+        - title: gr-pdu_utils
+          git_url: https://github.com/sandialabs/gr-pdu_utils.git
+          path: "{{ build_path }}/gr-pdu_utils"
+          branch: "maint-3.8"
+        - title: gr-fhss_utils
+          git_url: https://github.com/sandialabs/gr-fhss_utils.git
+          path: "{{ build_path }}/gr-fhss_utils"
+          branch: "maint-3.8"
+        - title: gr-timing_utils
+          git_url: https://github.com/sandialabs/gr-timing_utils.git
+          path: "{{ build_path }}/gr-timing_utils"
+          branch: "maint-3.8"
+        - title: gr-sandia_utils
+          git_url: https://github.com/sandialabs/gr-sandia_utils.git
+          path: "{{ build_path }}/gr-sandia_utils"
+          branch: "maint-3.8"
+        - title: gr-smart_meters
+          git_url: https://github.com/BitBangingBytes/gr-smart_meters.git
+          path: "{{ build_path }}/gr-smart_meters"
+          branch: main
+    - name: add dvb blacklist
+      lineinfile:
+        path: /etc/modprobe.d/blacklist-dvb_usb_rtl28xxu.conf
+        regexp: "^blacklist"
+        line: "blacklist dvb_usb_rtl28xxu"
+        create: yes
+      become: yes

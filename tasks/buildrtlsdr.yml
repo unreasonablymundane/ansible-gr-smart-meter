@@ -1,0 +1,30 @@
+- name: Clone {{ title }}.
+  git:
+    repo: "{{ git_url }}"
+    dest: "{{ path }}"
+    update: no
+  register: git_cloned
+- name: Create {{ title }} build dir
+  file:
+    path: "{{ path }}/build"
+    state: "directory"
+    mode: '0777'
+  when: git_cloned.changed
+- name: Build {{ title }}
+  command: "{{ cmd }} chdir={{ path }}/build"
+  loop:
+    - cmake .. -DINSTALL_UDEV_RULES=ON
+    - make -j3
+  loop_control:
+    loop_var: cmd
+  when: git_cloned.changed
+- name: Install {{ title }}
+  command: "{{ cmd }} chdir={{ path }}/build"
+  loop:
+    - make install
+    - cp ../rtl-sdr.rules /etc/udev/rules.d/
+    - ldconfig
+  loop_control:
+    loop_var: cmd
+  become: yes
+  when: git_cloned.changed

@@ -1,0 +1,30 @@
+- name: Clone {{ item.title }}.
+  git:
+    repo: "{{ item.git_url }}"
+    dest: "{{ item.path }}"
+    version: "{{ item.branch }}"
+    update: no
+  register: git_cloned
+- name: Create {{ item.title }} build dir
+  file:
+    path: "{{ item.path }}/build"
+    state: "directory"
+    mode: '0777'
+  when: git_cloned.changed
+- name: Build {{ item.title }}
+  command: "{{ cmd }} chdir={{ item.path }}/build"
+  loop:
+    - cmake ..
+    - make -j3
+  loop_control:
+    loop_var: cmd
+  when: git_cloned.changed
+- name: Install {{ item.title }}
+  command: "{{ cmd }} chdir={{ item.path }}/build"
+  loop:
+    - make install
+    - ldconfig
+  loop_control:
+    loop_var: cmd
+  become: yes
+  when: git_cloned.changed
