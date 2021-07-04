@@ -8,6 +8,11 @@
   environment:
     PYTHONPATH: /usr/local/lib/python3/dist-packages/
 
+  handlers:
+    - name: Restart system
+      reboot:
+      become: yes
+
   pre_tasks:
     - name: Add gnuradio repository.
       apt_repository: repo='ppa:gnuradio/gnuradio-releases-3.8'
@@ -17,6 +22,14 @@
         upgrade: yes
         update_cache: yes
         cache_valid_time: 3600
+      become: yes
+    - name: Check if reboot required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+    - name: Reboot if required
+      reboot:
+      when: reboot_required_file.stat.exists == true
       become: yes
 
   tasks:
@@ -63,6 +76,7 @@
         path: "{{ build_path }}"
         state: "directory"
         mode: '0777'
+      notify: Restart system
     - name: install numpy
       shell: |
         curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
@@ -114,3 +128,4 @@
         line: "blacklist dvb_usb_rtl28xxu"
         create: yes
       become: yes
+      notify: Restart system
